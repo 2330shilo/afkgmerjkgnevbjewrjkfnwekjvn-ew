@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מפצל סרטונים</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0f0f1a;
+    color: #e0e0f0;
+    min-height: 100vh;
+    direction: rtl;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a3e, #2d1b69);
+    padding: 20px 30px;
+    text-align: center;
+    border-bottom: 2px solid #4a3080;
+  }
+  .header h1 { font-size: 1.8rem; color: #c4a8ff; }
+  .header p { color: #9080b0; font-size: 0.9rem; margin-top: 4px; }
+  .container { max-width: 800px; margin: 30px auto; padding: 0 20px; }
+
+  .drop-zone {
+    border: 2px dashed #5a3fa0;
+    border-radius: 16px;
+    padding: 50px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #1a1530;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: #9b6fff;
+    background: #221a40;
+  }
+  .drop-zone .icon { font-size: 3rem; margin-bottom: 12px; }
+  .drop-zone h2 { color: #b090f0; margin-bottom: 8px; }
+  .drop-zone p { color: #7060a0; font-size: 0.9rem; }
+  #fileInput { display: none; }
+
+  .card {
+    background: #1a1530;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    border: 1px solid #2d2050;
+  }
+  .card h3 { color: #c4a8ff; margin-bottom: 16px; font-size: 1rem; }
+
+  .video-info {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .video-preview {
+    width: 160px;
+    height: 90px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: #000;
+  }
+  .video-meta { flex: 1; }
+  .meta-item { margin-bottom: 6px; font-size: 0.9rem; color: #9080b0; }
+  .meta-item span { color: #d0c0f0; }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #3d2a70;
+    border-radius: 10px;
+    background: #120f22;
+    color: #9080b0;
+    cursor: pointer;
+    text-align: center;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: #3d2a70;
+    color: #e0d0ff;
+    border-color: #7a5fc0;
+  }
+
+  .input-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .input-group label { color: #b090e0; font-size: 0.9rem; white-space: nowrap; }
+  input[type="number"], input[type="text"] {
+    background: #120f22;
+    border: 1px solid #3d2a70;
+    border-radius: 8px;
+    color: #e0d0ff;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    width: 80px;
+    text-align: center;
+    direction: ltr;
+  }
+  input[type="number"]:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: #7a5fc0;
+  }
+
+  .timeline {
+    height: 40px;
+    border-radius: 8px;
+    background: #2a1f50;
+    position: relative;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .timeline-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a3080, #7a5fc0);
+    position: absolute;
+    right: 0;
+    transition: width 0.3s;
+  }
+  .timeline-marker {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #ff6b6b;
+    transform: translateX(-50%);
+  }
+  .timeline-label {
+    position: absolute;
+    top: -18px;
+    font-size: 0.65rem;
+    color: #ff9090;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  .parts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .part-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #120f22;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+  .part-num {
+    background: #3d2a70;
+    color: #c4a8ff;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+  .part-time { color: #9080b0; flex: 1; direction: ltr; text-align: left; }
+
+  .manual-times {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .time-chip {
+    background: #2a1f50;
+    border: 1px solid #4a3080;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    direction: ltr;
+  }
+  .time-chip button {
+    background: none;
+    border: none;
+    color: #ff8080;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0;
+    line-height: 1;
+  }
+  .add-time-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .add-time-row input {
+    width: 100px;
+  }
+
+  .btn {
+    padding: 10px 22px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #5a3fa0, #8b6fcf);
+    color: #fff;
+  }
+  .btn-primary:hover { background: linear-gradient(135deg, #6a4fb0, #9b7fdf); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary {
+    background: #2a1f50;
+    color: #c4a8ff;
+    border: 1px solid #4a3080;
+  }
+  .btn-secondary:hover { background: #3a2f60; }
+  .btn-danger {
+    background: #3a1530;
+    color: #ff8080;
+    border: 1px solid #7a3050;
+  }
+  .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+
+  .download-section {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 16px;
+  }
+
+  .progress-bar {
+    height: 8px;
+    background: #1a1030;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #5a3fa0, #9b6fff);
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+  .status-msg {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #9080c0;
+    text-align: center;
+  }
+  .status-msg.error { color: #ff8080; }
+  .status-msg.success { color: #80ff90; }
+
+  .results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #120f22;
+    border-radius: 10px;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .result-name { font-size: 0.85rem; color: #c0b0e0; flex: 1; direction: ltr; text-align: left; }
+
+  .hidden { display: none !important; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #1a1530; }
+  ::-webkit-scrollbar-thumb { background: #3d2a70; border-radius: 3px; }
+
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10,8,20,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 4px solid #2d1b69;
+    border-top-color: #9b6fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: #c4a8ff; font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>✂️ מפצל סרטונים</h1>
+  <p>פצל כל סרטון לחלקים בקלות — הכל בדפדפן, ללא העלאה לשרת</p>
+</div>
+
+<div class="container">
+
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="dropZone">
+    <div class="icon">🎬</div>
+    <h2>גרור סרטון לכאן</h2>
+    <p>או לחץ לבחירת קובץ</p>
+    <p style="margin-top:8px; font-size:0.8rem; color:#504070;">MP4, MOV, AVI, MKV, WebM ועוד</p>
+    <input type="file" id="fileInput" accept="video/*">
+  </div>
+
+  <!-- Video Info -->
+  <div class="card hidden" id="videoInfoCard">
+    <h3>📹 פרטי הסרטון</h3>
+    <div class="video-info">
+      <video class="video-preview" id="videoPreview" muted></video>
+      <div class="video-meta">
+        <div class="meta-item">שם: <span id="metaName">—</span></div>
+        <div class="meta-item">גודל: <span id="metaSize">—</span></div>
+        <div class="meta-item">משך: <span id="metaDuration">—</span></div>
+        <div class="meta-item">פורמט: <span id="metaFormat">—</span></div>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-secondary btn-sm" onclick="resetAll()">🔄 בחר סרטון אחר</button>
+    </div>
+  </div>
+
+  <!-- Split Options -->
+  <div class="card hidden" id="splitCard">
+    <h3>✂️ הגדרות פיצול</h3>
+    <div class="tabs">
+      <div class="tab active" id="tabEqual" onclick="setMode('equal')">חלקים שווים</div>
+      <div class="tab" id="tabManual" onclick="setMode('manual')">זמנים ידניים</div>
+    </div>
+
+    <!-- Equal mode -->
+    <div id="modeEqual">
+      <div class="input-group">
+        <label>מספר חלקים:</label>
+        <input type="number" id="numParts" value="2" min="2" max="50" oninput="updateEqualPreview()">
+      </div>
+      <div id="equalTimeline" class="timeline" style="margin-top:8px;"></div>
+      <div class="parts-list" id="equalPartsList"></div>
+    </div>
+
+    <!-- Manual mode -->
+    <div id="modeManual" class="hidden">
+      <p style="font-size:0.85rem; color:#9080b0; margin-bottom:12px;">הוסף נקודות חיתוך (בשניות או בפורמט MM:SS)</p>
+      <div class="manual-times" id="manualChips"></div>
+      <div class="add-time-row">
+        <input type="text" id="newTimeInput" placeholder="מ״מ:שש" oninput="formatTimeInput(this)" onkeydown="if(event.key==='Enter') addManualTime()">
+        <button class="btn btn-secondary btn-sm" onclick="addManualTime()">+ הוסף</button>
+      </div>
+      <div id="manualTimeline" class="timeline" style="margin-top:16px;"></div>
+      <div class="parts-list" id="manualPartsList"></div>
+    </div>
+  </div>
+
+  <!-- Process -->
+  <div class="card hidden" id="processCard">
+    <h3>⚙️ עיבוד</h3>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <button class="btn btn-primary" id="processBtn" onclick="startProcessing()">✂️ פצל סרטון</button>
+    </div>
+    <div class="progress-bar hidden" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="status-msg" id="statusMsg"></div>
+
+    <!-- Results -->
+    <div id="resultsSection" class="hidden">
+      <div class="download-section">
+        <button class="btn btn-primary" onclick="downloadAll()">📦 הורד הכל כ-ZIP</button>
+      </div>
+      <div class="results-list" id="resultsList"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Loading overlay for FFmpeg -->
+<div class="loading-overlay hidden" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">טוען מנוע עיבוד וידאו...</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ---- State ----
+let videoFile = null;
+let videoDuration = 0;
+let mode = 'equal';
+let manualCuts = [];
+let resultBlobs = [];
+let ffmpegLoaded = false;
+let ffmpegWorker = null;
+
+// ---- Drop Zone ----
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('video/')) loadVideo(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadVideo(fileInput.files[0]); });
+
+function loadVideo(file) {
+  videoFile = file;
+  const url = URL.createObjectURL(file);
+  const vid = document.getElementById('videoPreview');
+  vid.src = url;
+  vid.onloadedmetadata = () => {
+    videoDuration = vid.duration;
+    document.getElementById('metaName').textContent = file.name;
+    document.getElementById('metaSize').textContent = formatSize(file.size);
+    document.getElementById('metaDuration').textContent = formatTime(videoDuration);
+    document.getElementById('metaFormat').textContent = file.type || file.name.split('.').pop().toUpperCase();
+    show('videoInfoCard');
+    show('splitCard');
+    show('processCard');
+    hide('dropZone');
+    updateEqualPreview();
+  };
+}
+
+// ---- Mode ----
+function setMode(m) {
+  mode = m;
+  document.getElementById('tabEqual').classList.toggle('active', m === 'equal');
+  document.getElementById('tabManual').classList.toggle('active', m === 'manual');
+  document.getElementById('modeEqual').classList.toggle('hidden', m !== 'equal');
+  document.getElementById('modeManual').classList.toggle('hidden', m !== 'manual');
+  if (m === 'manual') updateManualPreview();
+}
+
+// ---- Equal Mode ----
+function updateEqualPreview() {
+  if (!videoDuration) return;
+  const n = parseInt(document.getElementById('numParts').value) || 2;
+  const dur = videoDuration / n;
+  const tl = document.getElementById('equalTimeline');
+  const list = document.getElementById('equalPartsList');
+  tl.innerHTML = '';
+  list.innerHTML = '';
+  for (let i = 1; i < n; i++) {
+    const pct = (i / n) * 100;
+    const m = document.createElement('div');
+    m.className = 'timeline-marker';
+    m.style.right = pct + '%';
+    const lbl = document.createElement('div');
+    lbl.className = 'timeline-label';
+    lbl.style.right = pct + '%';
+    lbl.textContent = formatTime(i * dur);
+    tl.appendChild(m);
+    tl.appendChild(lbl);
+  }
+  const fill = document.createElement('div');
+  fill.className = 'timeline-fill';
+  fill.style.width = '100%';
+  tl.appendChild(fill);
+  for (let i = 0; i < n; i++) {
+    const start = i * dur, end = (i + 1) * dur;
+    list.innerHTML += `<div class="part-item"><div class="part-num">${i+1}</div><div class="part-time">${formatTime(start)} → ${formatTime(Math.min(end, videoDuration))}</div></div>`;
+  }
+}
+
+// ---- Manual Mode ----
+function formatTimeInput(inp) {
+  let v = inp.value.replace(/[^0-9:]/g, '');
+  inp.value = v;
+}
+
+function parseTimeInput(s) {
+  s = s.trim();
+  if (s.includes(':')) {
+    const parts = s.split(':');
+    return parseInt(parts[0])*60 + parseFloat(parts[1]);
+  }
+  return parseFloat(s);
+}
+
+function addManualTime() {
+  const inp = document.getElementById('newTimeInput');
+  const t = parseTimeInput(inp.value);
+  if (isNaN(t) || t <= 0 || t >= videoDuration) return;
+  if (manualCuts.includes(t)) return;
+  manualCuts.push(t);
+  manualCuts.sort((a,b) => a-b);
+  inp.value = '';
+  updateManualPreview();
+}
+
+function removeManualCut(t) {
+  manualCuts = manualCuts.filter(x => x !== t);
+  updateManualPreview();
+}
+
+function updateManualPreview() {
+  const chips = document.getElementById('manualChips');
+  chips.innerHTML = manualCuts.map(t =>
+    `<div class="time-chip">${formatTime(t)}<button onclick="removeManualCut(${t})">✕</button></div>`
+  ).join('');
+
+  const tl = document.getElementById('manualTimeline');
+  const list = document.getElementById('manualPartsList');
+  tl.innerHTML = '';
+  list.innerHTML = '';
+  const fill = document.createElement('div');
+  fill.className = 'timeline-fill'; fill.style.width = '100%';
+  tl.appendChild(fill);
+  manualCuts.forEach(t => {
+    const pct = (t / videoDuration) * 100;
+    const m = document.createElement('div');
+    m.className = 'timeline-marker'; m.style.right = pct + '%';
+    const lbl = document.createElement('div');
+    lbl.className = 'timeline-label'; lbl.style.right = pct + '%';
+    lbl.textContent = formatTime(t);
+    tl.appendChild(m); tl.appendChild(lbl);
+  });
+  const points = [0, ...manualCuts, videoDuration];
+  for (let i = 0; i < points.length - 1; i++) {
+    list.innerHTML += `<div class="part-item"><div class="part-num">${i+1}</div><div class="part-time">${formatTime(points[i])} → ${formatTime(points[i+1])}</div></div>`;
+  }
+}
+
+// ---- Processing ----
+function getCuts() {
+  if (mode === 'equal') {
+    const n = parseInt(document.getElementById('numParts').value) || 2;
+    const dur = videoDuration / n;
+    const pts = [0];
+    for (let i = 1; i < n; i++) pts.push(i * dur);
+    pts.push(videoDuration);
+    return pts;
+  } else {
+    return [0, ...manualCuts, videoDuration];
+  }
+}
+
+async function startProcessing() {
+  const cuts = getCuts();
+  if (cuts.length < 2) { showStatus('אנא הגדר לפחות חלק אחד', 'error'); return; }
+
+  const btn = document.getElementById('processBtn');
+  btn.disabled = true;
+  resultBlobs = [];
+  hide('resultsSection');
+  show('progressBar');
+  showStatus('מכין...');
+
+  try {
+    await processWithBrowser(cuts);
+  } catch(e) {
+    showStatus('שגיאה: ' + e.message, 'error');
+    btn.disabled = false;
+  }
+}
+
+async function processWithBrowser(cuts) {
+  // Use MediaSource / Blob slicing approach for broad compatibility
+  // We'll use a canvas + MediaRecorder approach for each segment
+  
+  const vid = document.createElement('video');
+  vid.src = URL.createObjectURL(videoFile);
+  vid.muted = false;
+  
+  await new Promise(r => { vid.onloadedmetadata = r; });
+  
+  const parts = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    parts.push({ start: cuts[i], end: cuts[i+1], index: i+1 });
+  }
+
+  const ext = videoFile.name.split('.').pop().toLowerCase();
+  const baseName = videoFile.name.replace(/\.[^.]+$/, '');
+
+  // Try FFmpeg.wasm if available, else use native approach
+  showStatus('מעבד חלקים... (עשוי לקחת זמן לסרטונים גדולים)');
+
+  try {
+    await processWithFFmpeg(parts, baseName, ext, cuts);
+  } catch(e) {
+    // Fallback: just slice time ranges and let user know
+    showStatus('מנוע FFmpeg לא זמין — מנסה שיטה חלופית...', '');
+    await processWithNative(parts, baseName, ext);
+  }
+}
+
+async function processWithFFmpeg(parts, baseName, ext, cuts) {
+  showOverlay('טוען FFmpeg...');
+  
+  const { createFFmpeg, fetchFile } = await loadFFmpegLib();
+  
+  const ff = createFFmpeg({
+    log: false,
+    corePath: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg.wasm/0.11.6/ffmpeg-core.js'
+  });
+  
+  if (!ff.isLoaded()) {
+    await ff.load();
+  }
+  
+  hideOverlay();
+  
+  const inputName = 'input.' + ext;
+  ff.FS('writeFile', inputName, await fetchFile(videoFile));
+  
+  const resultItems = [];
+  
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    setProgress((i / parts.length) * 100);
+    showStatus(`מעבד חלק ${p.index} מתוך ${parts.length}...`);
+    
+    const outName = `part${p.index}.${ext}`;
+    await ff.run(
+      '-i', inputName,
+      '-ss', String(p.start),
+      '-to', String(p.end),
+      '-c', 'copy',
+      outName
+    );
+    
+    const data = ff.FS('readFile', outName);
+    const blob = new Blob([data.buffer], { type: videoFile.type });
+    const filename = `${baseName}_חלק${p.index}.${ext}`;
+    resultBlobs.push({ blob, filename });
+    resultItems.push({ blob, filename, index: p.index });
+    ff.FS('unlink', outName);
+  }
+  
+  ff.FS('unlink', inputName);
+  setProgress(100);
+  showResults(resultItems, baseName, ext);
+}
+
+async function loadFFmpegLib() {
+  return new Promise((resolve, reject) => {
+    if (window.FFmpeg) { resolve(window.FFmpeg); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg.wasm/0.11.6/ffmpeg.min.js';
+    s.onload = () => resolve(window.FFmpeg);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// Native fallback using video element segments
+async function processWithNative(parts, baseName, ext) {
+  const mimeType = getSupportedMime();
+  if (!mimeType) {
+    showStatus('הדפדפן שלך אינו תומך בהקלטת וידאו. נסה Chrome.', 'error');
+    document.getElementById('processBtn').disabled = false;
+    return;
+  }
+
+  const resultItems = [];
+  
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    setProgress((i / parts.length) * 100);
+    showStatus(`מקליט חלק ${p.index} מתוך ${parts.length}...`);
+    
+    const blob = await recordSegment(p.start, p.end, mimeType);
+    const recExt = mimeType.includes('webm') ? 'webm' : 'mp4';
+    const filename = `${baseName}_חלק${p.index}.${recExt}`;
+    resultBlobs.push({ blob, filename });
+    resultItems.push({ blob, filename, index: p.index });
+  }
+  
+  setProgress(100);
+  showResults(resultItems, baseName, ext);
+}
+
+function getSupportedMime() {
+  const types = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || null;
+}
+
+async function recordSegment(start, end, mimeType) {
+  return new Promise((resolve) => {
+    const vid = document.createElement('video');
+    vid.src = URL.createObjectURL(videoFile);
+    vid.muted = true;
+    vid.playbackRate = 1;
+
+    const canvas = document.createElement('canvas');
+    const stream = canvas.captureStream(30);
+
+    vid.onloadedmetadata = () => {
+      canvas.width = vid.videoWidth || 1280;
+      canvas.height = vid.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+
+      const chunks = [];
+      const rec = new MediaRecorder(stream, { mimeType });
+      rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      rec.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+
+      vid.currentTime = start;
+      vid.onseeked = () => {
+        rec.start();
+        vid.play();
+        const draw = () => {
+          if (vid.currentTime >= end) {
+            vid.pause();
+            rec.stop();
+            return;
+          }
+          ctx.drawImage(vid, 0, 0);
+          requestAnimationFrame(draw);
+        };
+        draw();
+      };
+    };
+    vid.load();
+  });
+}
+
+function showResults(items, baseName, ext) {
+  const list = document.getElementById('resultsList');
+  list.innerHTML = '';
+  items.forEach(item => {
+    const url = URL.createObjectURL(item.blob);
+    const size = formatSize(item.blob.size);
+    list.innerHTML += `
+      <div class="result-item">
+        <div class="part-num">${item.index}</div>
+        <div class="result-name">${item.filename} <span style="color:#604080">(${size})</span></div>
+        <a href="${url}" download="${item.filename}" class="btn btn-secondary btn-sm">⬇ הורד</a>
+      </div>`;
+  });
+  show('resultsSection');
+  showStatus(`✅ הפיצול הושלם! ${items.length} חלקים מוכנים להורדה`, 'success');
+  document.getElementById('processBtn').disabled = false;
+}
+
+async function downloadAll() {
+  if (!resultBlobs.length) return;
+  const zip = new JSZip();
+  resultBlobs.forEach(({blob, filename}) => zip.file(filename, blob));
+  const zipBlob = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'סרטון_מפוצל.zip'; a.click();
+}
+
+// ---- Helpers ----
+function formatTime(s) {
+  const m = Math.floor(s/60), sec = Math.floor(s%60), ms = Math.floor((s%1)*10);
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${ms}`;
+}
+function formatSize(b) {
+  if (b > 1e9) return (b/1e9).toFixed(1)+' GB';
+  if (b > 1e6) return (b/1e6).toFixed(1)+' MB';
+  return (b/1e3).toFixed(0)+' KB';
+}
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function setProgress(p) { document.getElementById('progressFill').style.width = p+'%'; }
+function showStatus(msg, type='') {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status-msg ' + (type==='error'?'error':type==='success'?'success':'');
+}
+function showOverlay(msg) {
+  document.getElementById('loadingText').textContent = msg;
+  show('loadingOverlay');
+}
+function hideOverlay() { hide('loadingOverlay'); }
+function resetAll() {
+  videoFile = null; videoDuration = 0; manualCuts = []; resultBlobs = [];
+  hide('videoInfoCard'); hide('splitCard'); hide('processCard');
+  show('dropZone');
+  document.getElementById('fileInput').value = '';
+  hide('progressBar'); hide('resultsSection');
+  showStatus('');
+  setProgress(0);
+}
+</script>
+</body>
+</html>
